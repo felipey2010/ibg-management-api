@@ -4,11 +4,12 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import morgan from 'morgan';
 
-import { logger } from './config/logger';
-import { errorHandler } from './middleware/error-handler';
-import { notFoundHandler } from './middleware/not-found';
-import { responseFormatter } from './middleware/response-formatter';
-import { healthRouter } from './modules/health/health.routes';
+import { logger } from './config/logger.js';
+import { errorHandler } from './middleware/error-handler.js';
+import { notFoundHandler } from './middleware/not-found.js';
+import { responseFormatter } from './middleware/response-formatter.js';
+import { authRouter } from './modules/auth/auth.routes.js';
+import { healthRouter } from './modules/health/health.routes.js';
 
 export const createApp = (): Application => {
   const app = express();
@@ -33,6 +34,7 @@ export const createApp = (): Application => {
   app.use(morgan('combined', { stream: { write: (message) => logger.info(message.trim()) } }));
 
   app.use(responseFormatter);
+  app.use('/api/auth', authRouter);
   app.use('/api/health', healthRouter);
 
   app.use(notFoundHandler);

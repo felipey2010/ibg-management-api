@@ -1,6 +1,6 @@
 import { type NextFunction, type Request, type Response } from 'express';
 import type { ZodTypeAny } from 'zod';
-import { HttpError } from './error-handler';
+import { HttpError } from './error-handler.js';
 
 type RequestValidationResult = {
   body: unknown;
@@ -23,13 +23,27 @@ export const validateRequest = <TSchema extends ZodTypeAny>(schema: TSchema) => 
 
     const parsedRequest = result.data as RequestValidationResult;
 
+    // Assign parsed values safely. Some express request properties may be implemented as getters
+    // so reassigning the whole object can fail — copy properties instead.
     req.body = parsedRequest.body as typeof req.body;
+
+    // params is a plain object; replace reference to keep typings simple
     req.params = parsedRequest.params as typeof req.params;
-    req.query = parsedRequest.query as typeof req.query;
+
+    // query may be implemented with getters — copy keys instead of replacing the object
+    if (parsedRequest.query && typeof parsedRequest.query === 'object') {
+      const parsedQuery = parsedRequest.query as Record<string, unknown>;
+      const currentQuery = req.query as Record<string, unknown>;
+      Object.keys(parsedQuery).forEach((key) => {
+        // @ts-expect-error allow dynamic assignment
+        currentQuery[key] = parsedQuery[key];
+      });
+    }
+
     next();
   };
 };
 
 export const requireAuth = (_req: Request, _res: Response, next: NextFunction): void => {
-  next(new HttpError(401, 'Authentication required'));
+  next(new HttpError(401, 'Autenticação necessária'));
 };

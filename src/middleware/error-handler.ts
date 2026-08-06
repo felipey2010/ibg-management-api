@@ -1,7 +1,7 @@
 import { type NextFunction, type Request, type Response } from 'express';
 import { ZodError } from 'zod';
-import { logger } from '../config/logger';
-import { errorResponse } from '../utils/api-response';
+import { logger } from '../config/logger.js';
+import { errorResponse } from '../utils/api-response.js';
 
 export class HttpError extends Error {
   statusCode: number;
