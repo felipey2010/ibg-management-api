@@ -1,5 +1,5 @@
-import { prisma } from '../../config/database.js';
-import { user_status } from '../../generated/enums.js';
+import { prisma } from '../../../config/database.js';
+import { user_status } from '../../../generated/enums.js';
 
 export const authRepository = {
   findUserByEmail: (email: string) => prisma.users.findUnique({ where: { email } }),

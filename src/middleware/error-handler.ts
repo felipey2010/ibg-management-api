@@ -1,5 +1,5 @@
 import { type NextFunction, type Request, type Response } from 'express';
-import { ZodError } from 'zod';
+import { ZodError, type ZodIssue } from 'zod';
 import { logger } from '../config/logger.js';
 import { errorResponse } from '../utils/api-response.js';
 
@@ -12,6 +12,26 @@ export class HttpError extends Error {
   }
 }
 
+const translateValidationIssue = (issue: ZodIssue): string => {
+  // Custom schema messages are already Portuguese; translate Zod's defaults.
+  if (!issue.message.startsWith('Invalid input') && !issue.message.startsWith('Too small')) {
+    return issue.message;
+  }
+
+  switch (issue.code) {
+    case 'invalid_type':
+      return 'Tipo de valor inválido';
+    case 'invalid_format':
+      return issue.format === 'email' ? 'E-mail inválido' : 'Formato inválido';
+    case 'too_small':
+      return 'Valor menor que o permitido';
+    case 'too_big':
+      return 'Valor maior que o permitido';
+    default:
+      return 'Valor inválido';
+  }
+};
+
 export const errorHandler = (
   error: unknown,
   _req: Request,
@@ -21,10 +41,10 @@ export const errorHandler = (
   if (error instanceof ZodError) {
     const errors = error.issues.map((issue) => ({
       field: issue.path.join('.'),
-      message: issue.message,
+      message: translateValidationIssue(issue),
     }));
 
-    res.status(400).json(errorResponse('Validation error', errors));
+    res.status(400).json(errorResponse('Erro de validação', errors));
     return;
   }
 
@@ -35,5 +55,5 @@ export const errorHandler = (
   }
 
   logger.error({ err: error }, 'Unhandled application error');
-  res.status(500).json(errorResponse('Internal server error'));
+  res.status(500).json(errorResponse('Erro interno do servidor'));
 };

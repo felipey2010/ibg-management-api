@@ -3,9 +3,9 @@ import type { ZodTypeAny } from 'zod';
 import { HttpError } from './error-handler.js';
 
 type RequestValidationResult = {
-  body: unknown;
-  params: unknown;
-  query: unknown;
+  body?: unknown;
+  params?: unknown;
+  query?: unknown;
 };
 
 export const validateRequest = <TSchema extends ZodTypeAny>(schema: TSchema) => {
@@ -25,17 +25,20 @@ export const validateRequest = <TSchema extends ZodTypeAny>(schema: TSchema) => 
 
     // Assign parsed values safely. Some express request properties may be implemented as getters
     // so reassigning the whole object can fail — copy properties instead.
-    req.body = parsedRequest.body as typeof req.body;
+    if (parsedRequest.body !== undefined) {
+      req.body = parsedRequest.body as typeof req.body;
+    }
 
     // params is a plain object; replace reference to keep typings simple
-    req.params = parsedRequest.params as typeof req.params;
+    if (parsedRequest.params !== undefined) {
+      req.params = parsedRequest.params as typeof req.params;
+    }
 
     // query may be implemented with getters — copy keys instead of replacing the object
     if (parsedRequest.query && typeof parsedRequest.query === 'object') {
       const parsedQuery = parsedRequest.query as Record<string, unknown>;
       const currentQuery = req.query as Record<string, unknown>;
       Object.keys(parsedQuery).forEach((key) => {
-        // @ts-expect-error allow dynamic assignment
         currentQuery[key] = parsedQuery[key];
       });
     }

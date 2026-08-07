@@ -1,5 +1,5 @@
 import { type Request, type Response } from 'express';
-import { successResponse } from '../../utils/api-response.js';
+import { successResponse } from '../../../utils/api-response.js';
 
 export const healthController = {
   getHealth: (_req: Request, res: Response): void => {

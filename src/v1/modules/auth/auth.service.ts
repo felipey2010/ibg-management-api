@@ -1,8 +1,8 @@
 import bcrypt from 'bcryptjs';
 import { randomUUID } from 'crypto';
 import * as jwt from 'jsonwebtoken';
-import { env } from '../../config/env.js';
-import { HttpError } from '../../middleware/error-handler.js';
+import { env } from '../../../config/env.js';
+import { HttpError } from '../../../middleware/error-handler.js';
 import { authRepository } from './auth.repository.js';
 import type {
   AccessTokenPayload,
@@ -47,7 +47,11 @@ const verifyRefreshTokenPayload = (token: string): RefreshTokenPayload => {
   try {
     const payload = jwt.verify(token, env.JWT_SECRET as jwt.Secret) as unknown;
 
-    if (typeof payload !== 'object' || payload === null || typeof (payload as any).sessionId !== 'string') {
+    if (
+      typeof payload !== 'object' ||
+      payload === null ||
+      typeof (payload as any).sessionId !== 'string'
+    ) {
       throw new HttpError(401, 'Token de refresh inválido');
     }
 
@@ -156,7 +160,7 @@ export const authService = {
     }
 
     if (!session.users || session.users.status !== 'ACTIVE') {
-      throw new HttpError(403, 'User account is not active');
+      throw new HttpError(403, 'Sua conta não está ativa');
     }
 
     await authRepository.revokeSession(session.id);

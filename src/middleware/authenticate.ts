@@ -1,7 +1,7 @@
 import { type NextFunction, type Request, type Response } from 'express';
 import * as jwt from 'jsonwebtoken';
 import { env } from '../config/env.js';
-import { authRepository } from '../modules/auth/auth.repository.js';
+import { authRepository } from '../v1/modules/auth/auth.repository.js';
 import { HttpError } from './error-handler.js';
 
 export const authenticate = async (

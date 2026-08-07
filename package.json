@@ -14,11 +14,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "prisma-pull": "npx prisma db pull",
-    "prisma-generate": "npx prisma generate",
-    "prisma-show": "npx prisma studio"
+    "prisma:pull": "npx prisma db pull"
   },
-
   "repository": {
     "type": "git",
     "url": "git+https://github.com/felipey2010/ibg-management-api.git"
