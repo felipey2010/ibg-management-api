@@ -5,7 +5,7 @@ import { prisma } from '../../../config/database.js';
 import { authService } from './auth.service.js';
 import { authRepository } from './auth.repository.js';
 import bcrypt from 'bcryptjs';
-import * as jwt from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import { env } from '../../../config/env.js';
 import { jest } from '@jest/globals';
 
@@ -63,7 +63,9 @@ describe('Auth integration flows', () => {
   });
 
   test('login wrong password -> 401', async () => {
-    const res = await request(app).post('/api/v1/auth/login').send({ email, password: 'WrongPass1' });
+    const res = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ email, password: 'WrongPass1' });
     expect(res.status).toBe(401);
   });
 
@@ -106,21 +108,30 @@ describe('Auth integration flows', () => {
     expect(res.status).toBe(401);
   });
 
-  test('logout -> invalidates refresh token', async () => {
+  test('logout -> invalidates access and refresh tokens for the user', async () => {
     const r = await request(app).post('/api/v1/auth/login').send({ email, password });
+    const freshAccess = r.body.data.accessToken;
     const freshRefresh = r.body.data.refreshToken;
 
     const res = await request(app).post('/api/v1/auth/logout').send({ refreshToken: freshRefresh });
     expect(res.status).toBe(200);
 
-    const res2 = await request(app).post('/api/v1/auth/refresh').send({ refreshToken: freshRefresh });
+    const res2 = await request(app)
+      .post('/api/v1/auth/refresh')
+      .send({ refreshToken: freshRefresh });
     expect(res2.status).toBe(401);
+
+    const res3 = await request(app)
+      .get('/api/v1/auth/me')
+      .set('Authorization', `Bearer ${freshAccess}`);
+    expect(res3.status).toBe(401);
   });
 
   afterAll(async () => {
     try {
       const user = await prisma.users.findUnique({ where: { email } });
       if (user) {
+        await prisma.audit_logs.deleteMany({ where: { user_id: user.id } });
         await prisma.user_sessions.deleteMany({ where: { user_id: user.id } });
         await prisma.users.delete({ where: { id: user.id } });
       }
@@ -147,16 +158,15 @@ describe('Auth service unit tests (mocked)', () => {
 
   test('registerUser creates user and returns tokens', async () => {
     jest.spyOn(authRepository, 'findUserByEmail').mockResolvedValue(null as any);
-    jest
-      .spyOn(authRepository, 'createUser')
-      .mockResolvedValue({
-        id: 'u2',
-        email: 'x@y.com',
-        display_name: 'X',
-        password_hash: 'h',
-        status: 'ACTIVE',
-      } as any);
+    jest.spyOn(authRepository, 'createUser').mockResolvedValue({
+      id: 'u2',
+      email: 'x@y.com',
+      display_name: 'X',
+      password_hash: 'h',
+      status: 'ACTIVE',
+    } as any);
     jest.spyOn(authRepository, 'createSession').mockResolvedValue({} as any);
+    jest.spyOn(authRepository, 'createAuditLog').mockResolvedValue({} as any);
 
     const tokens = await authService.registerUser({
       email: 'x@y.com',
@@ -176,15 +186,13 @@ describe('Auth service unit tests (mocked)', () => {
   });
 
   test('loginUser rejects wrong password', async () => {
-    jest
-      .spyOn(authRepository, 'findUserByEmail')
-      .mockResolvedValue({
-        id: 'u3',
-        email: 'b@c.com',
-        display_name: 'B',
-        password_hash: 'hash',
-        status: 'ACTIVE',
-      } as any);
+    jest.spyOn(authRepository, 'findUserByEmail').mockResolvedValue({
+      id: 'u3',
+      email: 'b@c.com',
+      display_name: 'B',
+      password_hash: 'hash',
+      status: 'ACTIVE',
+    } as any);
     jest.spyOn(bcrypt as any, 'compare').mockResolvedValue(false);
     await expect(authService.loginUser('b@c.com', 'wrong')).rejects.toHaveProperty(
       'statusCode',
@@ -193,15 +201,13 @@ describe('Auth service unit tests (mocked)', () => {
   });
 
   test('loginUser rejects inactive account', async () => {
-    jest
-      .spyOn(authRepository, 'findUserByEmail')
-      .mockResolvedValue({
-        id: 'u4',
-        email: 'd@e.com',
-        display_name: 'D',
-        password_hash: 'hash',
-        status: 'INACTIVE',
-      } as any);
+    jest.spyOn(authRepository, 'findUserByEmail').mockResolvedValue({
+      id: 'u4',
+      email: 'd@e.com',
+      display_name: 'D',
+      password_hash: 'hash',
+      status: 'INACTIVE',
+    } as any);
     await expect(authService.loginUser('d@e.com', 'pass')).rejects.toHaveProperty(
       'statusCode',
       403,

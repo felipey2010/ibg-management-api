@@ -1,5 +1,5 @@
 import { type NextFunction, type Request, type Response } from 'express';
-import * as jwt from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import { env } from '../config/env.js';
 import { authRepository } from '../v1/modules/auth/auth.repository.js';
 import { HttpError } from './error-handler.js';
@@ -19,13 +19,25 @@ export const authenticate = async (
     const token = authorizationHeader.replace('Bearer ', '').trim();
     const payload = jwt.verify(token, env.JWT_SECRET as jwt.Secret) as unknown;
 
-    if (typeof payload !== 'object' || payload === null || typeof (payload as any).userId !== 'string') {
+    if (
+      typeof payload !== 'object' ||
+      payload === null ||
+      typeof (payload as any).sessionId !== 'string'
+    ) {
       throw new HttpError(401, 'Token de acesso inválido');
     }
 
-    const user = await authRepository.findUserById((payload as any).userId);
+    const session = await authRepository.findSessionById((payload as any).sessionId);
+    const user = session?.users;
 
-    if (!user || user.status !== 'ACTIVE') {
+    if (
+      !session ||
+      session.id !== (payload as any).sessionId ||
+      session.revoked_at ||
+      session.expires_at < new Date() ||
+      !user ||
+      user.status !== 'ACTIVE'
+    ) {
       throw new HttpError(401, 'Sessão de usuário inválida');
     }
 

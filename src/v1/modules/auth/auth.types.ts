@@ -6,6 +6,7 @@ export type AuthUser = {
 
 export type AccessTokenPayload = {
   userId: string;
+  sessionId: string;
   email: string;
   displayName: string;
 };

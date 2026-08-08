@@ -43,10 +43,22 @@ export const authRepository = {
   findSessionById: (sessionId: string) =>
     prisma.user_sessions.findUnique({ where: { id: sessionId }, include: { users: true } }),
 
-  revokeSession: (sessionId: string) =>
-    prisma.user_sessions.update({
-      where: { id: sessionId },
-      data: { revoked_at: new Date() },
+  deleteSessionsByUserId: (userId: string) =>
+    prisma.user_sessions.deleteMany({ where: { user_id: userId } }),
+
+  createAuditLog: (payload: {
+    user_id: string;
+    action: string;
+    entity_type: string;
+    entity_id?: string;
+  }) =>
+    prisma.audit_logs.create({
+      data: {
+        user_id: payload.user_id,
+        action: payload.action,
+        entity_type: payload.entity_type,
+        entity_id: payload.entity_id,
+      },
     }),
 
   updateLastLogin: (userId: string) =>

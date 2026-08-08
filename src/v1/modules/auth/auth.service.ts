@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { randomUUID } from 'crypto';
-import * as jwt from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import { env } from '../../../config/env.js';
 import { HttpError } from '../../../middleware/error-handler.js';
 import { authRepository } from './auth.repository.js';
@@ -22,9 +22,10 @@ const buildAuthUser = (user: { id: string; email: string; display_name: string }
   displayName: user.display_name,
 });
 
-const createAccessToken = (user: AuthUser): string => {
+const createAccessToken = (user: AuthUser, sessionId: string): string => {
   const payload: AccessTokenPayload = {
     userId: user.id,
+    sessionId,
     email: user.email,
     displayName: user.displayName,
   };
@@ -83,11 +84,11 @@ const createSession = async (
 };
 
 const buildTokens = async (user: AuthUser): Promise<AuthTokens> => {
-  const accessToken = createAccessToken(user);
   const sessionId = randomUUID();
   const refreshToken = createRefreshToken(sessionId);
 
   await createSession(sessionId, user.id, refreshToken);
+  const accessToken = createAccessToken(user, sessionId);
 
   return {
     accessToken,
@@ -114,7 +115,14 @@ export const authService = {
     });
 
     const authUser = buildAuthUser(user);
-    return buildTokens(authUser);
+    const tokens = await buildTokens(authUser);
+    await authRepository.createAuditLog({
+      user_id: user.id,
+      action: 'REGISTER',
+      entity_type: 'users',
+      entity_id: user.id,
+    });
+    return tokens;
   },
 
   loginUser: async (email: string, password: string): Promise<AuthTokens> => {
@@ -137,7 +145,14 @@ export const authService = {
     await authRepository.updateLastLogin(user.id);
 
     const authUser = buildAuthUser(user);
-    return buildTokens(authUser);
+    const tokens = await buildTokens(authUser);
+    await authRepository.createAuditLog({
+      user_id: user.id,
+      action: 'LOGIN',
+      entity_type: 'users',
+      entity_id: user.id,
+    });
+    return tokens;
   },
 
   refreshTokens: async (refreshToken: string): Promise<AuthTokens> => {
@@ -155,7 +170,7 @@ export const authService = {
     const isTokenValid = await bcrypt.compare(refreshToken, session.refresh_token_hash);
 
     if (!isTokenValid) {
-      await authRepository.revokeSession(session.id);
+      await authRepository.deleteSessionsByUserId(session.user_id);
       throw new HttpError(401, 'O refresh token não é mais válido');
     }
 
@@ -163,15 +178,14 @@ export const authService = {
       throw new HttpError(403, 'Sua conta não está ativa');
     }
 
-    await authRepository.revokeSession(session.id);
+    await authRepository.deleteSessionsByUserId(session.user_id);
 
     const authUser = buildAuthUser(session.users);
-    const accessToken = createAccessToken(authUser);
-
     // Create a brand new session id and refresh token (rotate)
     const newSessionId = randomUUID();
     const newRefreshToken = createRefreshToken(newSessionId);
     await createSession(newSessionId, session.users.id, newRefreshToken);
+    const accessToken = createAccessToken(authUser, newSessionId);
 
     return {
       accessToken,
@@ -192,6 +206,12 @@ export const authService = {
       throw new HttpError(401, 'O refresh token não é mais válido');
     }
 
-    await authRepository.revokeSession(session.id);
+    await authRepository.deleteSessionsByUserId(session.user_id);
+    await authRepository.createAuditLog({
+      user_id: session.user_id,
+      action: 'LOGOUT',
+      entity_type: 'users',
+      entity_id: session.user_id,
+    });
   },
 };
